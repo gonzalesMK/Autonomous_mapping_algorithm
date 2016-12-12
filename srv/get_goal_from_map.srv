@@ -1,0 +1,5 @@
+nav_msgs/OccupancyGrid costmap
+geometry_msgs/PoseStamped odom
+---
+geometry_msgs/PoseStamped goal
+bool is_finished
