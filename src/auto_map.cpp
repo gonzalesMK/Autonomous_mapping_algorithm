@@ -73,6 +73,11 @@ void feedback_cb(const move_base_msgs::MoveBaseFeedbackConstPtr &feedback){
     ROS_INFO_STREAM( " GOAL: (" <<goal_pose.pose.position.x << "," << goal_pose.pose.position.y <<") | POSE: (" <<
                        feedback.get()->base_position.pose.position.x << "," << feedback.get()->base_position.pose.position.y <<
                        ") | Distance: " << distance_to_goal << std::endl);
+
+    if( my_costmap.data.at( goal_pose.pose.position.x + goal_pose.pose.position.y * my_costmap.info.width ) != -1 ){
+        ROS_INFO("GOAL ACHIVED ON DISTANCE");
+        distance_to_goal= 0;
+    }
 }
 
 int main(int argc, char** argv)
@@ -110,7 +115,7 @@ int main(int argc, char** argv)
   tf::TransformListener listener;
   std::string robot_frame("AMR");
 
-  ros::Rate rate(1);
+  ros::Duration rate(0.5);
   while (ros::ok())
   {
       rate.sleep();
