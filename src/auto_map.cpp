@@ -69,15 +69,15 @@ void feedback_cb(const move_base_msgs::MoveBaseFeedbackConstPtr &feedback){
     double dx = feedback.get()->base_position.pose.position.x - goal_pose.pose.position.x;
     double dy = feedback.get()->base_position.pose.position.y - goal_pose.pose.position.y;
     distance_to_goal = std::sqrt( dx*dx + dy*dy);
-    system("clear");
+//    system("clear");
     ROS_INFO_STREAM( " GOAL: (" <<goal_pose.pose.position.x << "," << goal_pose.pose.position.y <<") | POSE: (" <<
                        feedback.get()->base_position.pose.position.x << "," << feedback.get()->base_position.pose.position.y <<
                        ") | Distance: " << distance_to_goal << std::endl);
-
+/*  Está matando o processo
     if( my_costmap.data.at( goal_pose.pose.position.x + goal_pose.pose.position.y * my_costmap.info.width ) != -1 ){
         ROS_INFO("GOAL ACHIVED ON DISTANCE");
         distance_to_goal= 0;
-    }
+    }*/
 }
 
 int main(int argc, char** argv)
@@ -145,7 +145,7 @@ int main(int argc, char** argv)
           goal_pose = srv_goal.response.goal ;
       } else {
           ROS_INFO_STREAM ( " MAP IS FINISHED ");
-          return 1;
+          // return -1;
       }
 
      // 3 - Atingir a Goal

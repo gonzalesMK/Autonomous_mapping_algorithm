@@ -22,7 +22,7 @@ struct point{
 };
 
 int OBSTACLE_LIMIT = 5;
-double DISTANCE_TO_OBSTACLE = 0.1;
+double DISTANCE_TO_OBSTACLE = 0.0;
 
 bool operator==( point A, point B) {
     return  A.x == B.x && A.y == B.y ?  true : false ;
@@ -40,7 +40,7 @@ double x_size=0,y_size=0,resolution=0;
 
 bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_map::Response &res)
 {
-    system( "clear");
+    //system( "clear");
 
     // Get all the information about the map
     y_size = req.costmap.info.height;              // cells
@@ -51,11 +51,11 @@ bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_
     // Get the pose of the robot
     geometry_msgs::PoseStamped w_odom = req.odom; /// world_odom in meters
     point m_c_odom;  /// map_cells_odometry
-    m_c_odom.x = (w_odom.pose.position.x - origin.position.x) / resolution;
-    m_c_odom.y = (w_odom.pose.position.y - origin.position.y) / resolution;
+    m_c_odom.x = (int) (w_odom.pose.position.x - origin.position.x) / resolution;
+    m_c_odom.y = (int) (w_odom.pose.position.y - origin.position.y) / resolution;
     m_c_odom.distance = 0;
 
-    /**  FOR DEBUGG
+    // /**  FOR DEBUGG
     ROS_INFO( " ******* MAP DEBUG **********");
     ROS_INFO_STREAM( "Origin: (" << origin.position.x << "," << origin.position.y <<")" );
     ROS_INFO_STREAM( "Resolution: " << resolution);
@@ -63,7 +63,7 @@ bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_
     ROS_INFO_STREAM( "World: \t (" << w_odom.pose.position.x << "," << w_odom.pose.position.y << ")");
     ROS_INFO_STREAM( "Costmap: \t (" << m_c_odom.x << "," << m_c_odom.y << ")");
     ROS_INFO_STREAM( " ********* SEARCHING UNKOWN CELLS ************");
-    */
+    //  */
 
     std::map<int, double> distance_map;
     std::list<point> to_visit;
@@ -80,7 +80,7 @@ bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_
     to_visit.push_back( m_c_odom );
 
     to_visit.sort(less_then);
-   // Start digging for unknow points
+    // Start digging for unknow points
     while(to_visit.empty() == false){
         point current = to_visit.front();
 
@@ -104,27 +104,27 @@ bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_
                 temp.y = current.y + dy;
                 double index = get_index(temp.x,temp.y);
 
+                if( temp.x < 0 || temp.x > x_size || temp.y < 0 || temp.y > y_size ){
+                 //   ROS_INFO("DESNECESSARIO ?");
+                    continue;
+                }
                 try{
                     temp.distance = distance_map.at( get_index( temp.x, temp.y));
                 }catch(const std::out_of_range& oor){
                     continue;
                 }
 
-                // Se é o mesmo ponto, o ponto já foi catalogado ou não pertence ao mapa
+                // Se é o mesmo ponto, o ponto já foi catalogado
                 if( dx == 0 && dy == 0){
                     continue;
                 }
                 if( temp.distance != std::numeric_limits<double>::infinity() ){
                     continue;
                 }
-                if( temp.x < 0 || temp.x >= x_size || temp.y < 0 || temp.y > y_size){
-                    ROS_INFO("DESNECESSARIO ?");
-                    continue;
-                }
 
                 // ROS_INFO_STREAM( "(" << temp.x << "," << temp.y << ")" << " - VALUE " << (int)req.costmap.data.at(index));
 
-                if( (int) req.costmap.data.at(index) == -1 && current.distance > 2 / resolution ) {
+                if( (int) req.costmap.data.at(index) == -1  &&  current.distance * resolution >  2.0) {
                         // At least one is a unknown and the and none is an obstacle
                         if ( isFreeWithin( temp.x, temp.y , req.costmap , DISTANCE_TO_OBSTACLE / resolution ) && isNotGhost( temp.x, temp.y ,req.costmap,1) ){
                             res.is_finished = false;
@@ -140,16 +140,16 @@ bool get_goal(mapping::get_goal_from_map::Request  &req, mapping::get_goal_from_
                             ROS_INFO_STREAM("******  GOAL SENT ****** ");
                             ROS_INFO_STREAM( "WORLD: (" << res.goal.pose.position.x << "," << res.goal.pose.position.y <<")");
                             ROS_INFO_STREAM( "MAP: (" << temp.x << "," << temp.y <<")" );
-                            ROS_INFO_STREAM( "VALUE: " << (int) req.costmap.data.at(index));
+                            ROS_INFO_STREAM( "DISTANCE: " << (int) current.distance * resolution );
                             return true;
 
                         } else {
-                            temp.distance =  current.distance + std::sqrt((double) dx*dx + dy*dy) ;
+                            temp.distance =  std::sqrt( (double)( (temp.x - m_c_odom.x) * (temp.x - m_c_odom.x) + (temp.y - m_c_odom.y) * (temp.y - m_c_odom.y))) ;
                             distance_map.at(index) = temp.distance;
                             to_visit.push_back(temp);
                        }
-                } else if ( (int) req.costmap.data.at(index)  == 0 ) {
-                        temp.distance =  current.distance + std::sqrt((double) dx*dx + dy*dy) ;
+                } else if ( (int) req.costmap.data.at(index)  == 0 || (int) req.costmap.data.at(index)  == -1 ) {
+                        temp.distance =  std::sqrt((double)((temp.x - m_c_odom.x) * (temp.x - m_c_odom.x) + (temp.y - m_c_odom.y) * (temp.y - m_c_odom.y) )) ;
                         distance_map.at(index) = temp.distance;
                         to_visit.push_front(temp);
                }
@@ -207,9 +207,9 @@ bool isNotGhost( int mx, int my, nav_msgs::OccupancyGrid costmap, int distance_f
     for( int dx = - distance_free ; dx <= distance_free ; dx++ ){
         for ( int dy = -(distance_free - abs(dx) ) ; dy <= (distance_free- abs(dx) ) ; dy ++){
             if( dx == 0 && dy == 0){
-            } else if ( costmap.data.at( dx + mx + (dy+my)* costmap.info.width ) == 0 ) {
-                //ROS_INFO_STREAM("POINT: (" << x+dx << "," << y+dx << ")" );
-                contador ++;
+            } else if( dx + mx < 0 || dx+mx > x_size || dy+my < 0 || dy+my > y_size ){
+            } else if (  costmap.data.at( dx + mx + (dy+my)* costmap.info.width ) == 0 ) {
+                    contador ++;
             }
         }
     }
@@ -222,8 +222,10 @@ bool isNotGhost( int mx, int my, nav_msgs::OccupancyGrid costmap, int distance_f
 bool isFreeWithin( int mx, int my , nav_msgs::OccupancyGrid costmap, int distance_free){
     for( int x = - distance_free ; x < distance_free; x++){
         for( int y = -(distance_free - abs(x) ) ; y < (distance_free- abs(x) ) ; y ++){
+            if( x+mx < 0 || x+mx > x_size || y+my < 0 || y+my > y_size ){
+                continue;
+            }
             if ( (int) costmap.data.at(get_index(mx+x, my+y)) > OBSTACLE_LIMIT ) {
-//                  ROS_INFO("CLOSE TO OBSTACLE");
                 return false;
             }
         }
